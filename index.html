@@ -20,12 +20,12 @@
     overflow:auto;
   }
   body{display:flex;align-items:center;justify-content:center;min-height:100%;padding:22px 12px;}
-  .rig{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:700px;}
+  .rig{display:flex;flex-direction:column;align-items:center;gap:10px;}
   .brandrow{display:flex;align-items:baseline;justify-content:space-between;width:100%;padding:0 6px;}
   .brandrow .name{font-weight:800;letter-spacing:.14em;font-size:13px;color:#8a8578;text-transform:uppercase;}
   .brandrow .model{font-size:11px;letter-spacing:.08em;color:#635e52;}
   .mac{
-    position:relative;width:100%;
+    position:relative;
     background:linear-gradient(155deg,var(--plastic-1) 0%,var(--plastic-2) 55%,var(--plastic-3) 100%);
     border-radius:22px;padding:26px 26px 18px;
     box-shadow:0 2px 0 rgba(255,255,255,.5) inset,0 -6px 14px rgba(0,0,0,.18) inset,0 24px 50px rgba(0,0,0,.55),0 2px 0 rgba(0,0,0,.4);
@@ -37,7 +37,7 @@
     box-shadow:0 3px 8px rgba(0,0,0,.6) inset;
   }
   canvas#scr{
-    display:block;width:100%;aspect-ratio:512/342;
+    display:block;
     image-rendering:pixelated;image-rendering:crisp-edges;
     border-radius:6px;background:#fff;cursor:default;touch-action:none;
     box-shadow:0 0 18px rgba(255,255,255,.08);
@@ -59,6 +59,12 @@
   .help{font-size:12px;color:#7d786b;text-align:center;line-height:1.5;}
   .help b{color:#a39d8c;}
   @media (pointer:coarse){ .pad{display:flex;} }
+  body.compact{padding:4px;}
+  body.compact .rig{gap:6px;}
+  body.compact .brandrow, body.compact .help, body.compact .handle{display:none;}
+  body.compact .mac{padding:10px 10px 6px;border-radius:14px;}
+  body.compact .screen-well{padding:6px;border-radius:10px;}
+  body.compact .chin{margin-top:5px;}
 </style>
 </head>
 <body>
@@ -85,10 +91,47 @@
 <script>
 (() => {
 "use strict";
-const cv = document.getElementById('scr');
-const ctx = cv.getContext('2d');
+const cv = document.getElementById('scr');          // what you see (scaled up)
+const dctx = cv.getContext('2d');
 const SW = 512, SH = 342;
+const buf = document.createElement('canvas'); buf.width=SW; buf.height=SH; // the real 512x342 Mac screen
+const ctx = buf.getContext('2d', {willReadFrequently:true});
 ctx.imageSmoothingEnabled = false;
+
+/* ---------- crisp whole-number scaling ---------- */
+// Every Mac pixel becomes an exact NxN block of real screen pixels, so
+// dither patterns and text never shimmer or smear.
+let scale = 1;
+function fitScreen(){
+  const dpr = window.devicePixelRatio || 1;
+  const rig = document.querySelector('.rig'), mac = document.querySelector('.mac');
+  const body = document.body;
+  function room(){
+    const cs = getComputedStyle(body);
+    const padW = parseFloat(cs.paddingLeft)+parseFloat(cs.paddingRight);
+    const padH = parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom);
+    return { w: window.innerWidth  - (mac.offsetWidth - cv.offsetWidth) - padW - 2,
+             h: window.innerHeight - (rig.offsetHeight - cv.offsetHeight) - padH - 2 };
+  }
+  const kOf = r => Math.floor(Math.min(r.w*dpr/SW, r.h*dpr/SH));
+  body.classList.remove('compact');
+  let r = room(), k = kOf(r);
+  body.classList.add('compact');
+  const rc = room(), kc = kOf(rc);
+  if(kc > k){ k = kc; r = rc; } else body.classList.remove('compact');
+  const fit = Math.min(r.w/SW, r.h/SH);          // CSS px per Mac pixel if we filled the space
+  let cssPer = k/dpr;
+  if(k < 1 || (dpr >= 2 && cssPer < fit*0.8)){   // sharp high-DPI screen and whole-number size is much too small:
+    cssPer = fit; k = Math.max(1, Math.round(fit*dpr)); // fill the space (fine on high-DPI phones)
+  }
+  scale = k;
+  cv.width = SW*k; cv.height = SH*k;
+  cv.style.width = (SW*cssPer)+'px'; cv.style.height = (SH*cssPer)+'px';
+  dctx.imageSmoothingEnabled = false;
+}
+fitScreen();
+window.addEventListener('resize', fitScreen);
+matchMedia('(resolution: 1dppx)').addEventListener?.('change', fitScreen);
 
 /* ---------- 1-bit helpers ---------- */
 const BLACK = '#000', WHITE = '#fff';
@@ -816,6 +859,8 @@ function render(){
   drawOverlays();
   drawMenuBar();
   threshold();
+  dctx.imageSmoothingEnabled = false;
+  dctx.drawImage(buf, 0, 0, cv.width, cv.height);
 }
 
 /* ---------- loop ---------- */
