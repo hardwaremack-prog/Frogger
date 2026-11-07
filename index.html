@@ -281,8 +281,8 @@ const LANE_DEFS = {
   4:{kind:'log',   len:3, v: 26, starts:[0,8,15,23]},
   5:{kind:'turtle',len:3, v:-38, starts:[0,7,14,21], dive:[0,2]},
   7:{kind:'truck', len:2, v:-34, starts:[0,9,18]},
-  8:{kind:'racer', len:1, v: 92, starts:[0,15]},
-  9:{kind:'car',   len:1, v:-44, starts:[0,7,14,21]},
+  8:{kind:'racer', len:1, v: 74, starts:[0,15]},
+  9:{kind:'car',   len:1, v:-40, starts:[0,7,14,21]},
   10:{kind:'dozer',len:1, v: 30, starts:[0,6,12,20]},
   11:{kind:'car2', len:1, v:-38, starts:[0,8,16,24]},
 };
@@ -511,10 +511,16 @@ function update(dt){
     // hopping sideways on a log: drift with it
     frog.fromX += L.v*dt; frog.toX += L.v*dt;
   }
-  // traffic
-  if(frog.row>=7 && frog.row<=11 && L){
-    const fl=frog.x+3, fr=frog.x+13;
-    for(const o of L.objs){ if(fr>o.x+2 && fl<o.x+o.len*CELL-2){ die('squash'); return; } }
+  // traffic: only a real, visible overlap counts, and mid-hop we check
+  // the lane the frog is actually in on screen (old lane first half, new lane second half)
+  const vr = frog.hop>0 ? (frog.hop<0.5 ? frog.fromRow : frog.toRow) : frog.row;
+  const TL = lanes[vr];
+  if(vr>=7 && vr<=11 && TL){
+    const fl=frog.x+4, fr=frog.x+12;           // frog's body, not its toes
+    for(const o of TL.objs){
+      const vl=o.x+4, vrt=o.x+o.len*CELL-4;     // vehicle's body, not its bumpers
+      if(fr>vl && fl<vrt){ frog.row=vr; die('squash'); return; }
+    }
   }
 }
 function riding(L){
