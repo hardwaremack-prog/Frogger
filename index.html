@@ -346,11 +346,11 @@ function buildLanes(level){
 function wrapX(x){ return ((x+MARGIN)%WRAP+WRAP)%WRAP - MARGIN; }
 function turtleState(o,t){
   if(!o.dive) return 0;
-  const p=((t+o.phase)%4.2);
-  if(p<2.4) return 0;          // up
-  if(p<2.9) return 1;          // half
-  if(p<3.6) return 2;          // under
-  return 1;
+  const p=((t+o.phase)%5);
+  if(p<2.6) return 0;          // up
+  if(p<3.6) return 1;          // sinking (1 second warning, still safe)
+  if(p<4.4) return 2;          // under water: not safe
+  return 1;                    // coming back up
 }
 
 /* ---------- game state ---------- */
@@ -513,7 +513,8 @@ function update(dt){
     for(const r in lanes){ const L=lanes[r]; L.objs.forEach(o=>o.x=wrapX(o.x+L.v*dt)); }
     return;
   }
-  for(const r in lanes){ const L=lanes[r]; L.objs.forEach(o=>o.x=wrapX(o.x+L.v*dt)); }
+  // traffic freezes while the frog is dying so you can see exactly what got you
+  if(state!=='dying') for(const r in lanes){ const L=lanes[r]; L.objs.forEach(o=>o.x=wrapX(o.x+L.v*dt)); }
 
   // fly
   fly.next-=dt;
@@ -550,9 +551,10 @@ function update(dt){
     frog.x += L.v*dt;
     const c=frog.x+8;
     if(c<0||c>PW){ die('splash'); return; }
-  } else if(isRiver && L && frog.hop>0 && frog.fromRow===frog.toRow){
-    // hopping sideways on a log: drift with it
-    frog.fromX += L.v*dt; frog.toX += L.v*dt;
+  } else if(frog.hop>0){
+    // mid-hop over the river: drift with whatever the frog is visibly over
+    const hr = frog.hop<0.5 ? frog.fromRow : frog.toRow;
+    if(hr>=1 && hr<=5 && lanes[hr]){ frog.fromX += lanes[hr].v*dt; frog.toX += lanes[hr].v*dt; }
   }
   // traffic: only a real, visible overlap counts, and mid-hop we check
   // the lane the frog is actually in on screen (old lane first half, new lane second half)
@@ -569,7 +571,7 @@ function update(dt){
 function riding(L){
   const c=frog.x+8;
   for(const o of L.objs){
-    if(c>o.x+1 && c<o.x+o.len*CELL-1){
+    if(c>o.x-3 && c<o.x+o.len*CELL+3){   // a little forgiving at the ends
       if(L.kind==='turtle' && turtleState(o,clock)===2) continue;
       return o;
     }
@@ -678,7 +680,8 @@ function drawBackdrop(){
     rect(c-BAY_W/2+PX,PY+4,BAY_W,CELL-4,WHITE); ctx.fillStyle=PAT.grass; ctx.fillRect(c-BAY_W/2+PX+1,PY+6,BAY_W-2,CELL-7);
   });
   // river
-  ctx.save(); ctx.translate(Math.floor(clock*6)%8,0);
+  ctx.save(); ctx.beginPath(); ctx.rect(PX,PY+CELL,PW,CELL*5); ctx.clip();
+  ctx.translate(Math.floor(clock*6)%8,0);
   ctx.fillStyle=PAT.water; ctx.fillRect(PX-8,PY+CELL,PW+8,CELL*5);
   ctx.restore();
   // median & start (grass)
@@ -774,6 +777,7 @@ function drawVehicle(kind,x,y,len,dir){
 }
 function drawLanes(){
   clipPlay();
+  ctx.translate(PX,0);   // lane objects live in playfield coordinates, same as the frog
   for(const r in lanes){
     const L=lanes[r], y=PY+L.row*CELL;
     for(const o of L.objs){

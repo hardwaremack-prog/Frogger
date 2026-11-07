@@ -23,7 +23,7 @@ Open `index.html` in Chrome, Edge, Firefox or Safari (desktop or phone).
 - On a phone, **swipe** the screen or use the on-screen pad
 - Cross five lanes of traffic, then ride logs and turtles across the river
 - Fill all **5 bays** at the top to clear the level (+1000). Everything gets faster each level
-- **Diving turtles** sink out from under you, and you drown if you ride off the edge of the screen
+- **Diving turtles** start sinking a second before they go under, then drop out from under you, and you drown if you ride off the edge of the screen
 - Catch a **fly** in a bay for +200. Leftover time adds a bonus to every frog you bring home
 - 30 seconds per frog, 3 frogs to start, extra frog every 10,000 points
 - The **Game** menu has Sound and Easy / Normal / Hard
